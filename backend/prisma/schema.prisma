@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Artigo {
+  id                      String    @id @default(cuid())
+  codigo                  String    @unique
+  descricao               String
+  dci                     String?
+  codigoAtc               String?
+  familia                 String
+  subfamilia              String?
+  tipo                    String
+  unidadeMedida           String
+  necessitaLote           Boolean   @default(false)
+  requerPrescricao        Boolean   @default(false)
+  psicotropico            Boolean   @default(false)
+  temperaturaArmazenamento String   @default("AMBIENTE")
+  validadeMinimaDias      Int       @default(90)
+  stockMinimo             Float     @default(0)
+  stockMaximo             Float     @default(0)
+  pontoEncomenda          Float     @default(0)
+  precoMedioPonderado     Float     @default(0)
+  unidadeMedidaCompra     String?
+  fatorConversao          Float?
+  ativo                   Boolean   @default(true)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  lotes                   Lote[]
+  stockLocalizacoes       StockLocalizacao[]
+  movimentos              Movimento[]
+  linhasEncomenda         LinhaEncomenda[]
+}
+
+model Localizacao {
+  id                   String    @id @default(cuid())
+  codigo               String    @unique
+  designacao           String
+  tipo                 String
+  responsavel          String?
+  temperaturaControlada Boolean  @default(false)
+  ativa                Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+
+  stocks               StockLocalizacao[]
+  movimentos           Movimento[]        @relation("MovimentoOrigem")
+  movimentosDestino    Movimento[]        @relation("MovimentoDestino")
+}
+
+model Lote {
+  id                String    @id @default(cuid())
+  numeroLote        String
+  artigoId          String
+  artigo            Artigo    @relation(fields: [artigoId], references: [id])
+  fornecedorId      String?
+  fornecedor        Fornecedor? @relation(fields: [fornecedorId], references: [id])
+  dataFabrico       DateTime?
+  dataValidade      DateTime
+  quantidadeInicial Float
+  quantidadeActual  Float
+  estado            String    @default("ACTIVO")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  movimentos        Movimento[]
+
+  @@unique([numeroLote, artigoId])
+}
+
+model StockLocalizacao {
+  id            String      @id @default(cuid())
+  artigoId      String
+  artigo        Artigo      @relation(fields: [artigoId], references: [id])
+  localizacaoId String
+  localizacao   Localizacao @relation(fields: [localizacaoId], references: [id])
+  quantidade    Float       @default(0)
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([artigoId, localizacaoId])
+}
+
+model Movimento {
+  id                    String      @id @default(cuid())
+  tipo                  String
+  artigoId              String
+  artigo                Artigo      @relation(fields: [artigoId], references: [id])
+  loteId                String?
+  lote                  Lote?       @relation(fields: [loteId], references: [id])
+  localizacaoId         String
+  localizacao           Localizacao @relation("MovimentoOrigem", fields: [localizacaoId], references: [id])
+  localizacaoDestinoId  String?
+  localizacaoDestino    Localizacao? @relation("MovimentoDestino", fields: [localizacaoDestinoId], references: [id])
+  quantidade            Float
+  precoUnitario         Float       @default(0)
+  valorTotal            Float       @default(0)
+  referencia            String?
+  motivo                String?
+  utilizador            String
+  observacoes           String?
+  cancelado             Boolean     @default(false)
+  motivoCancelamento    String?
+  canceladoPor          String?
+  canceladoEm           DateTime?
+  movimentoOrigemId     String?
+  createdAt             DateTime    @default(now())
+}
+
+model Fornecedor {
+  id         String    @id @default(cuid())
+  codigo     String    @unique
+  nome       String
+  nif        String?
+  email      String?
+  telefone   String?
+  ativo      Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+
+  lotes      Lote[]
+  encomendas Encomenda[]
+}
+
+model Encomenda {
+  id                  String    @id @default(cuid())
+  numero              String    @unique
+  fornecedorId        String
+  fornecedor          Fornecedor @relation(fields: [fornecedorId], references: [id])
+  estado              String    @default("PENDENTE")
+  dataEncomenda       DateTime  @default(now())
+  dataEntregaPrevista DateTime?
+  dataEntregaReal     DateTime?
+  observacoes         String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  linhas              LinhaEncomenda[]
+}
+
+model LinhaEncomenda {
+  id                    String    @id @default(cuid())
+  encomendaId           String
+  encomenda             Encomenda @relation(fields: [encomendaId], references: [id])
+  artigoId              String
+  artigo                Artigo    @relation(fields: [artigoId], references: [id])
+  quantidadeEncomendada Float
+  quantidadeRecebida    Float     @default(0)
+  precoUnitario         Float
+  createdAt             DateTime  @default(now())
+}
